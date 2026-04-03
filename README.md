@@ -10,17 +10,30 @@ app_port: 8000
 
 # Customer Support OpenEnv
 
-Project for the Meta OpenEnv hackathon. Implements a multi-step customer support environment with tiered difficulty.
+A multi-turn, multi-tier RL environment for training AI agents on real-world customer support tasks. Built for the Meta OpenEnv Hackathon.
 
 ## Motivation
-The Customer Support OpenEnv environment provides a high-fidelity simulation of real-world agent tasks. It replaces simple "toy" RL games with procedural, multi-turn troubleshooting scenarios that require empathy, precise variable extraction (Order IDs, Refund Amounts), and deterministic escalation logic to solve correctly.
 
-## The Tasks
-The environment uses a tiered difficulty scoring system (0.0 - 1.0):
+Customer support is one of the most common real-world tasks deployed with LLMs today. A well-trained support agent must do more than retrieve information — it must empathize, diagnose problems systematically, reference specific details (order IDs, dollar amounts), and know when to escalate. This environment simulates that complexity with procedural generation and curriculum-aware difficulty.
 
-1. **Easy (Difficulty: EASY):** Broken product report. The agent must apologize and offer a refund while referencing the customer's name or Order ID.
-2. **Medium (Difficulty: MEDIUM):** Technical software crash. The agent must perform root-cause analysis by identifying the user's OS before providing a solution.
-3. **Hard (Difficulty: HARD):** Angry escalation. The agent must show empathy, quote the **exact procedurally generated refund amount**, and only then escalate to a manager for a perfect score.
+Every `reset()` generates a unique scenario with randomized names, order IDs, overcharge amounts, software types, and OS options, ensuring agents must perform real-time reading comprehension rather than pattern-matching on fixed inputs.
+
+## Four Difficulty Tiers
+
+The environment uses a tiered curriculum that maps to real skill progression for a support agent:
+
+| Tier | Task | Key Skills Tested |
+| :--- | :--- | :--- |
+| **Easy** | Damaged product refund | Empathy, identity reference, refund offer |
+| **Medium** | Software crash troubleshooting | Diagnostic sequencing (OS before solution) |
+| **Hard** | Billing dispute escalation | Empathy, exact amount recall, manager escalation |
+| **Expert** | Subscription cancellation & retention | Root-cause diagnosis, targeted offer, professional close |
+
+Rewards are continuous (0.0–1.0) with partial credit at each meaningful step, enabling rich reward signals for RL training.
+
+## Curriculum Mode
+
+Set `env.curriculum = True` to auto-advance difficulty. The environment tracks rolling average reward over the last 3 episodes and promotes the agent to the next tier once it sustains ≥0.8 average — matching difficulty to the agent's current capability.
 
 ## Space Definitions
 
@@ -32,35 +45,38 @@ The environment uses a tiered difficulty scoring system (0.0 - 1.0):
 ### Observation Space
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| `customer_reply` | `str` | The customer's response (or initial problem statement). |
-| `task_tier` | `str` | Current difficulty tier (`easy`, `medium`, `hard`). |
-| `done` | `bool` | Whether the conversation has completed. |
-| `reward` | `float` | Continuous grader score representing partial progress (0.0 to 1.0). |
+| `customer_reply` | `str` | Customer's response (or opening problem statement). |
+| `task_tier` | `str` | Current difficulty: `easy`, `medium`, `hard`, `expert`. |
+| `done` | `bool` | Whether the episode has completed. |
+| `reward` | `float` | Continuous grader score (0.0 to 1.0). |
 
 ## Quick Start
 
-### 1. Build & Run
 ```bash
 uv sync
 uv run server
 ```
 
-### 2. Docker
-To run as a container (for HF Spaces):
+### Docker
 ```bash
 docker build -t support-env -f server/Dockerfile .
 docker run -p 8000:8000 support-env
 ```
 
-## Running Evaluation
-Use `inference.py` to run an LLM evaluation across all tasks. 
+## Evaluation
 
 ```bash
 export HF_TOKEN="your_token"
-python inference.py
+uv run python3 inference.py
 ```
 
-### Reference Scores
-*   Easy: 1.0
-*   Medium: 1.0
-*   Hard: 1.0
+Uses `Qwen/Qwen2.5-72B-Instruct` via the Hugging Face Inference Router by default.
+
+### Reference Scores (Qwen2.5-72B-Instruct)
+| Tier | Score |
+| :--- | :--- |
+| Easy | 1.00 |
+| Medium | 1.00 |
+| Hard | 1.00 |
+| Expert | 1.00 |
+| **Average** | **1.00** |

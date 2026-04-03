@@ -1,14 +1,14 @@
 """
 Inference script for the Customer Support OpenEnv environment.
 
-This script evaluates an LLM agent across all three difficulty tiers
-of the Customer Support environment using the OpenAI-compatible API.
+Evaluates an LLM agent across all four difficulty tiers using the
+OpenAI-compatible Hugging Face Inference Router.
 
 Environment variables:
     API_BASE_URL:       LLM API endpoint. Defaults to HF router.
-    MODEL_NAME:         LLM model identifier. Defaults to Llama-3.2-3B-Instruct.
-    HF_TOKEN:           Hugging Face API key. No default - must be set explicitly.
-    LOCAL_IMAGE_NAME:   Optional. Docker image name for local testing via from_docker_image().
+    MODEL_NAME:         LLM model. Defaults to Qwen/Qwen2.5-72B-Instruct.
+    HF_TOKEN:           Hugging Face token. No default — must be set explicitly.
+    LOCAL_IMAGE_NAME:   Optional. Docker image for local testing via from_docker_image().
 """
 
 import os
@@ -16,14 +16,28 @@ from openai import OpenAI
 from server.customer_support_environment import CustomerSupportEnvironment
 from models import CustomerSupportAction
 
-# Required environment variables - defaults only for API_BASE_URL and MODEL_NAME.
-# HF_TOKEN must be set by the caller with no fallback.
+# Defaults for API_BASE_URL and MODEL_NAME only. HF_TOKEN must never have a default.
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-# Optional: set this when running the environment from a local Docker image.
+# Optional — only required when using from_docker_image()
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
+
+SYSTEM_PROMPT = (
+    "You are a professional customer support agent. Resolve the customer's issue "
+    "efficiently and empathetically in as few turns as possible.\n\n"
+    "Rules:\n"
+    "1. DAMAGED PRODUCT: Apologize sincerely, reference the customer name or order ID, "
+    "and proactively offer a full refund or replacement.\n"
+    "2. SOFTWARE CRASH: ALWAYS ask what operating system the customer uses FIRST, "
+    "before suggesting any fix.\n"
+    "3. BILLING DISPUTE: Acknowledge frustration with empathy, explicitly mention the "
+    "exact overcharge dollar amount, offer to refund it, then escalate to a manager.\n"
+    "4. SUBSCRIPTION CANCELLATION: Ask why they want to cancel, then offer a targeted "
+    "discount or plan downgrade. If they still want to cancel, process it professionally.\n\n"
+    "Be concise (2-4 sentences per reply). Never ask multiple questions at once."
+)
 
 
 def run_tier(client: OpenAI, env: CustomerSupportEnvironment, tier: str) -> float:
@@ -31,29 +45,14 @@ def run_tier(client: OpenAI, env: CustomerSupportEnvironment, tier: str) -> floa
     print("[START]")
     print(f"tier={tier}")
 
-    # Force the tier BEFORE reset so the opening message matches
     env.forced_tier = tier
     obs = env.reset()
 
-    system_prompt = (
-        "You are a professional customer support agent. Your goal is to resolve the "
-        "customer's issue efficiently and empathetically in as few turns as possible.\n\n"
-        "Guidelines:\n"
-        "- For broken/damaged product complaints: apologize sincerely, reference the "
-        "customer name or order ID, and proactively offer a full refund or replacement.\n"
-        "- For software crash issues: ALWAYS ask what operating system the customer is "
-        "using FIRST before suggesting any solution.\n"
-        "- For billing disputes: acknowledge the frustration with empathy, explicitly "
-        "mention the exact overcharge amount in dollars, offer to process the refund, "
-        "and then escalate to a manager when requested.\n"
-        "Keep responses concise (2-4 sentences). Do not ask multiple questions at once."
-    )
-
-    messages = [{"role": "system", "content": system_prompt}]
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     final_reward = 0.0
 
     while not obs.done:
-        print(f"[STEP]")
+        print("[STEP]")
         print(f"customer: {obs.customer_reply}")
         messages.append({"role": "user", "content": obs.customer_reply})
 
@@ -65,10 +64,13 @@ def run_tier(client: OpenAI, env: CustomerSupportEnvironment, tier: str) -> floa
                 max_tokens=150,
                 stream=False,
             )
-            agent_msg = completion.choices[0].message.content or "I am looking into this right now."
+            agent_msg = completion.choices[0].message.content or "I am looking into this for you right now."
         except Exception as exc:
             print(f"model_error: {exc}")
-            agent_msg = "I apologize for the inconvenience. Let me escalate this to a manager immediately."
+            agent_msg = (
+                "I sincerely apologize for the inconvenience. "
+                "I am escalating this to a manager immediately."
+            )
 
         print(f"agent: {agent_msg}")
         messages.append({"role": "assistant", "content": agent_msg})
@@ -93,7 +95,7 @@ def main():
     print(f"model={MODEL_NAME}")
     print(f"endpoint={API_BASE_URL}")
 
-    tiers = ["easy", "medium", "hard"]
+    tiers = ["easy", "medium", "hard", "expert"]
     scores = {}
 
     for tier in tiers:

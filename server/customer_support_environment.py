@@ -1,6 +1,5 @@
 from uuid import uuid4
 import random
-import re
 
 from openenv.core.env_server.interfaces import Environment
 from openenv.core.env_server.types import State
@@ -16,40 +15,71 @@ except (ImportError, ModuleNotFoundError):
 
 class CustomerSupportEnvironment(Environment):
     """
-    Multi-tier Customer Support RL environment with procedural generation.
+    Multi-tier Customer Support RL environment with procedural generation
+    and curriculum-aware difficulty progression.
 
-    Three difficulty tiers:
-      easy   - Damaged product refund. Rewards empathy + identity reference + refund offer.
-      medium - Software crash. Rewards OS clarification before solution.
-      hard   - Billing dispute. Rewards empathy + exact amount + escalation in sequence.
+    Four difficulty tiers (ordered by complexity):
+      easy   - Damaged product: empathy + identity reference + refund offer.
+      medium - Software crash: OS diagnosis before solution.
+      hard   - Billing dispute: empathy + exact amount + manager escalation.
+      expert - Subscription cancellation: diagnose reason + retention offer + resolution.
 
-    Reward range: 0.0 to 1.0 (continuous, partial rewards at each step).
+    Reward range: 0.0 to 1.0 (continuous, partial rewards on each meaningful step).
+
+    Curriculum mode: set `env.curriculum = True` to auto-advance difficulty
+    based on rolling success rate. The environment tracks performance and
+    matches difficulty to the agent's current capability level.
     """
 
     SUPPORTS_CONCURRENT_SESSIONS: bool = True
 
-    NAMES = ["Alex", "Jordan", "Taylor", "Casey", "Riley", "Morgan", "Sam", "Drew"]
+    NAMES = ["Alex", "Jordan", "Taylor", "Casey", "Riley", "Morgan", "Sam", "Drew", "Avery", "Quinn"]
     PRODUCTS = [
         "Coffee Maker", "Mechanical Keyboard", "Smartwatch",
-        "Running Shoes", "Wireless Headphones", "Desk Lamp", "Backpack"
+        "Running Shoes", "Wireless Headphones", "Desk Lamp",
+        "Backpack", "Bluetooth Speaker", "Air Purifier"
     ]
     SOFTWARE = [
         "Video rendering suite", "Cloud storage sync app",
-        "Photo editing software", "Code compiler", "PDF editor"
+        "Photo editing software", "Code compiler",
+        "PDF editor", "Audio production software"
     ]
     OS_OPTIONS = ["Windows 11", "macOS Sonoma", "Ubuntu 22.04"]
+    SUBSCRIPTION_PLANS = ["Pro", "Business", "Premium", "Team"]
+    CANCEL_REASONS = [
+        "too expensive", "not using it enough",
+        "switching to a competitor", "missing a key feature"
+    ]
+    DISCOUNT_OFFERS = [20, 30, 40, 50]
+
+    TIERS = ["easy", "medium", "hard", "expert"]
 
     def __init__(self):
         self._state = State(episode_id=str(uuid4()), step_count=0)
         self.task_tier = "easy"
-        self.max_turns = 6
+        self.max_turns = 8
         self.current_reward = 0.0
         self.task_state = {}
         self.context = {}
+        # Curriculum mode: auto-advances difficulty based on rolling success rate
+        self.curriculum = False
+        self._episode_scores = []
+        self._curriculum_tier_idx = 0
 
     def reset(self) -> CustomerSupportObservation:
-        """Reset the environment and procedurally generate a new customer scenario."""
+        """Reset environment and procedurally generate a new customer scenario."""
         self._state = State(episode_id=str(uuid4()), step_count=0)
+
+        # Track previous episode reward for curriculum adjustment
+        if self.current_reward > 0 and self._episode_scores is not None:
+            self._episode_scores.append(self.current_reward)
+            # Advance tier once agent sustains >0.8 avg over last 3 episodes
+            if self.curriculum and len(self._episode_scores) >= 3:
+                recent_avg = sum(self._episode_scores[-3:]) / 3
+                if recent_avg >= 0.8 and self._curriculum_tier_idx < len(self.TIERS) - 1:
+                    self._curriculum_tier_idx += 1
+                    self._episode_scores = []
+
         self.current_reward = 0.0
         self.task_state = {
             "easy_apologized": False,
@@ -57,6 +87,8 @@ class CustomerSupportEnvironment(Environment):
             "medium_asked_os": False,
             "hard_empathized": False,
             "hard_compensated": False,
+            "expert_diagnosed_reason": False,
+            "expert_made_offer": False,
         }
 
         self.context = {
@@ -66,13 +98,19 @@ class CustomerSupportEnvironment(Environment):
             "software": random.choice(self.SOFTWARE),
             "os": random.choice(self.OS_OPTIONS),
             "overcharge_amt": random.randint(50, 500),
+            "plan": random.choice(self.SUBSCRIPTION_PLANS),
+            "cancel_reason": random.choice(self.CANCEL_REASONS),
+            "discount_pct": random.choice(self.DISCOUNT_OFFERS),
+            "months_subscribed": random.randint(3, 36),
         }
 
-        tiers = ["easy", "medium", "hard"]
-        if hasattr(self, "forced_tier"):
+        # Determine tier: forced > curriculum > random
+        if hasattr(self, "forced_tier") and self.forced_tier in self.TIERS:
             self.task_tier = self.forced_tier
+        elif self.curriculum:
+            self.task_tier = self.TIERS[self._curriculum_tier_idx]
         else:
-            self.task_tier = random.choice(tiers)
+            self.task_tier = random.choice(self.TIERS)
 
         customer_reply = self._build_opening_message()
         return CustomerSupportObservation(
@@ -94,11 +132,17 @@ class CustomerSupportEnvironment(Environment):
                 f"Support, my {self.context['software']} keeps crashing immediately "
                 "on launch since this morning. I have a deadline today!"
             )
-        else:
+        elif self.task_tier == "hard":
             return (
                 f"THIS IS UNACCEPTABLE! You double-charged my credit card by "
                 f"${self.context['overcharge_amt']} this month. I am furious. "
                 "Get me a manager NOW."
+            )
+        else:  # expert
+            return (
+                f"I need to cancel my {self.context['plan']} subscription. "
+                f"I've been a customer for {self.context['months_subscribed']} months "
+                f"but it's just {self.context['cancel_reason']}. Please cancel it."
             )
 
     def step(self, action: CustomerSupportAction) -> CustomerSupportObservation:  # type: ignore[override]
@@ -115,12 +159,12 @@ class CustomerSupportEnvironment(Environment):
             customer_reply, done = self._process_medium(agent_msg)
         elif self.task_tier == "hard":
             customer_reply, done = self._process_hard(agent_msg)
+        elif self.task_tier == "expert":
+            customer_reply, done = self._process_expert(agent_msg)
 
-        # Timeout: agent failed to resolve within max turns
         if self._state.step_count >= self.max_turns and not done:
             done = True
-            customer_reply = "This is taking too long. I am filing a dispute with my bank. Goodbye."
-            # Partial credit is preserved; do not zero it out — diversity matters
+            customer_reply = "I have been waiting too long. I am filing a formal complaint. Goodbye."
 
         return CustomerSupportObservation(
             customer_reply=customer_reply,
@@ -131,29 +175,30 @@ class CustomerSupportEnvironment(Environment):
 
     def _process_easy(self, msg: str):
         """
-        Easy tier grader: 3-step reward progression.
-          +0.2 for apology
-          +0.2 for referencing name or order ID
-          +0.6 for offering refund (capped at 1.0)
+        Easy tier: 3-step reward sequence.
+          +0.2  apology detected
+          +0.2  customer name or order ID referenced
+          +0.6  refund or replacement offered (caps at 1.0)
         """
         done = False
-        reply = "I'm still waiting to hear how you'll resolve this."
+        reply = "I'm still waiting to hear how you will fix this."
 
-        apology_words = ["sorry", "apologize", "apologies", "regret", "sincerely"]
+        apology_words = ["sorry", "apologize", "apologies", "regret", "sincerely sorry"]
         if any(w in msg for w in apology_words):
             if not self.task_state["easy_apologized"]:
-                self.current_reward += 0.2
+                self.current_reward = min(self.current_reward + 0.2, 1.0)
                 self.task_state["easy_apologized"] = True
-                reply = "I appreciate the apology — but what about my refund?"
+                reply = "I appreciate the apology. But what about my money?"
 
-        order_id_str = self.context["order_id"].lstrip("#")
+        order_id_digits = self.context["order_id"].lstrip("#")
         name_lower = self.context["name"].lower()
-        if order_id_str in msg or name_lower in msg:
+        if order_id_digits in msg or name_lower in msg:
             if not self.task_state["easy_referenced_identity"]:
                 self.current_reward = min(self.current_reward + 0.2, 1.0)
                 self.task_state["easy_referenced_identity"] = True
 
-        if any(w in msg for w in ["refund", "replacement", "reimburse", "return your money", "money back"]):
+        refund_words = ["refund", "replacement", "reimburse", "return your money", "money back", "new one"]
+        if any(w in msg for w in refund_words):
             if self.task_state["easy_apologized"]:
                 self.current_reward = min(self.current_reward + 0.6, 1.0)
             else:
@@ -165,25 +210,25 @@ class CustomerSupportEnvironment(Environment):
 
     def _process_medium(self, msg: str):
         """
-        Medium tier grader: 2-step reward progression.
-          +0.5 for asking about OS/platform before giving a solution
-          +0.5 for providing a fix after OS is known (total = 1.0)
+        Medium tier: 2-step reward sequence.
+          +0.5  OS clarification asked before giving a solution
+          +0.5  technical fix provided after OS is known (total = 1.0)
+        Penalty: giving a fix without knowing the OS caps reward at 0.1.
         """
         done = False
-        reply = "Are you going to help me fix this crash or not?"
+        reply = "Are you going to help me fix this or not?"
 
-        os_inquiry_words = ["os", "operating system", "windows", "mac", "linux", "platform", "system", "version"]
-        fix_words = ["driver", "update", "reinstall", "patch", "reboot", "restart", "clear cache", "fresh install"]
+        os_words = ["os", "operating system", "windows", "mac", "linux", "ubuntu", "platform", "system", "version"]
+        fix_words = ["driver", "update", "reinstall", "patch", "reboot", "restart", "clear cache", "fresh install", "repair"]
 
         if not self.task_state["medium_asked_os"]:
-            if any(w in msg for w in os_inquiry_words):
+            if any(w in msg for w in os_words):
                 self.current_reward = 0.5
                 self.task_state["medium_asked_os"] = True
-                reply = f"I'm running {self.context['os']}. Does that help?"
+                reply = f"I am running {self.context['os']}. Does that help?"
             elif any(w in msg for w in fix_words):
-                # Penalize giving a solution without knowing the OS
                 self.current_reward = max(self.current_reward, 0.1)
-                reply = "You're giving me solutions without even knowing what system I'm on!"
+                reply = "You are giving me fixes without even knowing what system I am on!"
         else:
             if any(w in msg for w in fix_words):
                 self.current_reward = 1.0
@@ -194,23 +239,23 @@ class CustomerSupportEnvironment(Environment):
 
     def _process_hard(self, msg: str):
         """
-        Hard tier grader: 3-step sequential reward.
-          +0.3 for empathy
-          +0.4 for referencing the exact overcharge amount AND offering a refund
-          +0.3 for escalating to manager AFTER the above two steps (total = 1.0)
+        Hard tier: 3-step sequential reward.
+          +0.3  empathy expressed
+          +0.4  exact overcharge amount referenced + refund offered
+          +0.3  escalation to manager (only full 1.0 if previous steps done)
         """
         done = False
-        reply = "Are you even listening? I SAID I want a manager!"
+        reply = "Did you hear what I said? I want to speak to a MANAGER!"
 
-        empathy_words = ["understand", "frustrating", "sorry", "apologize", "completely understand", "sincerely"]
-        refund_words = ["refund", "credit", "return", "reimburse", "reverse the charge"]
-        escalation_words = ["manager", "supervisor", "escalate", "transfer you", "higher up"]
+        empathy_words = ["understand", "frustrating", "sorry", "apologize", "completely understand", "terrible", "awful"]
+        refund_words = ["refund", "credit", "return", "reimburse", "reverse the charge", "process the refund"]
+        escalation_words = ["manager", "supervisor", "escalate", "transfer you", "higher up", "senior agent"]
 
         if not self.task_state["hard_empathized"]:
             if any(w in msg for w in empathy_words):
                 self.current_reward = min(self.current_reward + 0.3, 1.0)
                 self.task_state["hard_empathized"] = True
-                reply = "Words are cheap. What are you actually doing about my money?"
+                reply = "Words are cheap. What are you doing about my money?"
 
         if not self.task_state["hard_compensated"]:
             amount_mentioned = str(self.context["overcharge_amt"]) in msg
@@ -218,18 +263,67 @@ class CustomerSupportEnvironment(Environment):
             if amount_mentioned and refund_mentioned:
                 self.current_reward = min(self.current_reward + 0.4, 1.0)
                 self.task_state["hard_compensated"] = True
-                reply = "Fine, the refund is a start. But I still want to speak to a manager!"
+                reply = "A refund is the bare minimum. Now get me a manager!"
             elif amount_mentioned:
                 self.current_reward = min(self.current_reward + 0.1, 1.0)
-                reply = "Yes that's the wrong amount. What are you going to do about it?"
+                reply = "Yes, that is the overcharge. What is your plan?"
 
         if any(w in msg for w in escalation_words):
             if self.task_state["hard_empathized"] and self.task_state["hard_compensated"]:
                 self.current_reward = 1.0
             else:
-                # Partial credit for escalation without proper prep
                 self.current_reward = min(self.current_reward + 0.2, 0.8)
-            reply = "It's about time. Put them on the line."
+            reply = "Finally. Put them on."
+            done = True
+
+        return reply, done
+
+    def _process_expert(self, msg: str):
+        """
+        Expert tier: 3-step reward sequence for subscription cancellation + retention.
+          +0.25  agent asks about the reason for cancellation (diagnosis)
+          +0.4   agent makes a targeted retention offer (discount or plan change)
+          +0.35  professional resolution: either customer stays OR cancel is processed respectfully
+        """
+        done = False
+        reply = "I just want to cancel. Can you please just process that?"
+
+        reason_words = ["why", "reason", "what's the issue", "what is the issue", "what made you", "tell me more", "concern", "unhappy"]
+        offer_words = ["discount", "offer", f"{self.context['discount_pct']}%", "reduction", "free month", "pause", "downgrade", "alternative plan"]
+        resolution_words = [
+            "cancel", "cancelled", "processed", "subscription ended",
+            "happy to stay", "keep my subscription", "keep the subscription", "won't cancel",
+            "stay with us"
+        ]
+
+        if not self.task_state["expert_diagnosed_reason"]:
+            if any(w in msg for w in reason_words):
+                self.current_reward = min(self.current_reward + 0.25, 1.0)
+                self.task_state["expert_diagnosed_reason"] = True
+                reply = (
+                    f"Honestly, it is just {self.context['cancel_reason']}. "
+                    "I do not see the value anymore."
+                )
+
+        if not self.task_state["expert_made_offer"] and self.task_state["expert_diagnosed_reason"]:
+            if any(w in msg for w in offer_words):
+                self.current_reward = min(self.current_reward + 0.4, 1.0)
+                self.task_state["expert_made_offer"] = True
+                reply = (
+                    f"A {self.context['discount_pct']}% discount is interesting... "
+                    "but I am still not sure. What if I still want to cancel?"
+                )
+
+        if any(w in msg for w in resolution_words):
+            if self.task_state["expert_diagnosed_reason"] and self.task_state["expert_made_offer"]:
+                self.current_reward = 1.0
+                reply = "You know what, given the offer, I will give it another month. Thank you for working with me."
+            elif self.task_state["expert_diagnosed_reason"]:
+                self.current_reward = min(self.current_reward + 0.1, 0.7)
+                reply = "Okay, my subscription has been cancelled. Disappointing that there was no offer."
+            else:
+                self.current_reward = max(self.current_reward, 0.35)
+                reply = "Thanks for cancelling. This felt very impersonal though."
             done = True
 
         return reply, done
