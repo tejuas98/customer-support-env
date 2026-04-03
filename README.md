@@ -91,7 +91,7 @@ The **'Custom'** tab provides a dashboard to manually verify the environment's h
 
 ---
 
-## Evaluation Alignment (Judge's Checklist)
+## Evaluation Alignment (Checklist)
 
 To ensure this project hits **100/100** based on the Hackathon Scoring Breakdown:
 
@@ -104,4 +104,3 @@ To ensure this project hits **100/100** based on the Hackathon Scoring Breakdown
 | **Creativity & Novelty** (10%) | Novel Expert tier with Targeted Retention logic and premium Gradio UI. | 100% |
 
 ![Documentation Showcase](assets/docs_showcase.png)
-*High-fidelity documentation and clear evaluation guidance.*
