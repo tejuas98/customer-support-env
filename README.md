@@ -1,6 +1,5 @@
----
 title: Customer Support OpenEnv
-emoji: 🤖
+emoji: chatbot
 colorFrom: blue
 colorTo: indigo
 sdk: docker
@@ -8,11 +7,11 @@ pinned: false
 app_port: 8000
 ---
 
-# 🎧 Customer Support OpenEnv: PREMIUM EDITION
+# Customer Support OpenEnv: PREMIUM EDITION
 
 A high-fidelity, multi-tier RL environment for training AI agents on real-world customer support tasks. Optimized for the Meta OpenEnv framework.
 
-## ⭐ Premium Hackathon Features
+## Premium Hackathon Features
 - **Custom Support Dashboard**: A professional Gradio UI redesign at `/web` featuring a real-time Chatbot interface, live reward gauges, and tiered difficulty metrics.
 - **Trajectory Logging**: Every evaluation is captured as a high-fidelity JSON trajectory in `outputs/trajectories/`, suitable for detailed review and model fine-tuning.
 - **Nuanced Expert Tier**: Advanced retention logic requiring **targeted offers** (e.g., offering a discount for price concerns, or roadmap highlights for feature gaps).
@@ -27,10 +26,10 @@ Customer support is one of the most common real-world tasks deployed with LLMs t
 
 | Tier | Task | Key Skills Tested | Status |
 | :--- | :--- | :--- | :--- |
-| **Easy** | Damaged product refund | Empathy, identity reference, refund offer | ✅ PASS |
-| **Medium** | Software crash troubleshooting | Diagnostic sequencing (OS before solution) | ✅ PASS |
-| **Hard** | Billing dispute escalation | Empathy, exact amount recall, manager escalation | ✅ PASS |
-| **Expert** | Subscription cancellation & retention | Root-cause diagnosis, targeted offer, professional close | ✅ PASS |
+| **Easy** | Damaged product refund | Empathy, identity reference, refund offer | PASS |
+| **Medium** | Software crash troubleshooting | Diagnostic sequencing (OS before solution) | PASS |
+| **Hard** | Billing dispute escalation | Empathy, exact amount recall, manager escalation | PASS |
+| **Expert** | Subscription cancellation & retention | Root-cause diagnosis, targeted offer, professional close | PASS |
 
 ---
 
@@ -58,7 +57,7 @@ docker run -p 8000:8000 support-env
 
 ---
 
-## 🤝 Evaluation & Quick-Start Guide
+## Evaluation & Quick-Start Guide
 
 We have designed this environment to be easily explored. Below are the recommended ways to verify the project's logic and compliance:
 
@@ -73,13 +72,13 @@ uv run python3 inference.py
 
 ### 2. Manual Verification (Visual)
 Please visit our live Hugging Face Space: 
-👉 [tejus98/customer-support-env](https://huggingface.co/spaces/tejus98/customer-support-env)
+[tejus98/customer-support-env](https://huggingface.co/spaces/tejus98/customer-support-env)
 
 The **'Custom'** tab provides a dashboard to manually verify the environment's high-fidelity empathy grading and tiered reward signals in real-time.
 
 ---
 
-## 🏗️ Technical Specifications
+## Technical Specifications
 - **RL Grader Strategy**: Implemented in `server/customer_support_environment.py`.
 - **Environment Tiers**: Procedural generation for `easy`, `medium`, `hard`, and `expert`.
 - **Model Compatibility**: `Qwen/Qwen2.5-72B-Instruct` (HF Router).

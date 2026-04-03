@@ -55,7 +55,7 @@ def build_custom_ui(web_manager, action_fields, metadata, is_chat_env, title, qu
     Builds a professional Customer Support Dashboard UI.
     """
     with gr.Blocks(theme=gr.themes.Soft(primary_hue="indigo", secondary_hue="slate")) as demo:
-        gr.Markdown(f"# 🎧 {title} Dashboard")
+        gr.Markdown(f"# {title} Dashboard")
         gr.Markdown("Training autonomous agents for high-empathy customer resolutions.")
 
         with gr.Row():
@@ -68,13 +68,13 @@ def build_custom_ui(web_manager, action_fields, metadata, is_chat_env, title, qu
                     reset_btn = gr.Button("Reset Episode", variant="secondary")
 
             with gr.Column(scale=1):
-                gr.Markdown("### 📊 Episode Metrics")
+                gr.Markdown("### Episode Metrics")
                 reward_display = gr.Number(label="Total Reward", value=0.0, precision=2)
                 tier_display = gr.Label(label="Current Difficulty Tier")
                 step_display = gr.Number(label="Step Count", value=0)
                 
                 gr.Markdown("---")
-                gr.Markdown("### 🎯 Objectives")
+                gr.Markdown("### Objectives")
                 objectives_html = gr.HTML("Follow the 4-rule system prompt for maximum reward.")
 
         def update_ui():
