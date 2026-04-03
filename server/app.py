@@ -54,13 +54,13 @@ def build_custom_ui(web_manager, action_fields, metadata, is_chat_env, title, qu
     """
     Builds a professional Customer Support Dashboard UI.
     """
-    with gr.Blocks(theme=gr.themes.Soft(primary_py="indigo", secondary_py="slate")) as demo:
+    with gr.Blocks(theme=gr.themes.Soft(primary_hue="indigo", secondary_hue="slate")) as demo:
         gr.Markdown(f"# 🎧 {title} Dashboard")
         gr.Markdown("Training autonomous agents for high-empathy customer resolutions.")
 
         with gr.Row():
             with gr.Column(scale=3):
-                chatbot = gr.Chatbot(label="Support Conversation", height=500, type="messages")
+                chatbot = gr.Chatbot(label="Support Conversation", height=500)
                 msg = gr.Textbox(label="Agent Response (RL Action)", placeholder="Type your response here...", show_label=False)
                 
                 with gr.Row():
