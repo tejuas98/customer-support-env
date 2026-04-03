@@ -58,7 +58,32 @@ docker run -p 8000:8000 support-env
 
 ---
 
+## 🏆 For Judges: How to Evaluate
+
+To fully evaluate this environment as described in the hackers' guidelines:
+
+### 1. Automated Evaluation (Preferred)
+```bash
+export HF_TOKEN="your_huggingface_token"
+uv run python3 inference.py
+```
+**What will happen:**
+- The script uses `Qwen/Qwen2.5-72B-Instruct` as the reasoning engine.
+- You will see the standard OpenEnv log markers: `[START]`, `[STEP]`, and `[END]`.
+- All 4 tiers (Easy, Medium, Hard, Expert) are tested sequencially.
+- **Trajectories Produced:** Full session histories are saved as JSON files in `outputs/trajectories/` for deep inspection.
+
+### 2. Manual Inspection (Visual)
+Visit our live Hugging Face Space: 
+👉 [tejus98/customer-support-env](https://huggingface.co/spaces/tejus98/customer-support-env)
+
+Navigate to the **'Custom'** tab to use our premium **Support Agent Dashboard**. This allows you to manually verify the environment's high-fidelity empathy grading and reward signals.
+
+---
+
 ## 🏗️ Technical Specifications
-- **Model**: `Qwen/Qwen2.5-72B-Instruct` (HF Router)
-- **Reward Range**: 0.0 to 1.0 (Continuous)
-- **Log Markers**: Strict `[START]`, `[STEP]`, `[END]` compliance for automated grading.
+- **RL Grader Logic**: Implemented in `server/customer_support_environment.py`.
+- **Model Compatibility**: `Qwen/Qwen2.5-72B-Instruct` (HF Router).
+- **Reward Range**: 0.0 to 1.0 (Continuous with partial credit).
+- **Trajectory Format**: JSON with turn-by-turn text, rewards, and difficulty metadata.
+- **Log Markers**: Strict `[START]`, `[STEP]`, `[END]` compliance for automated OpenEnv grading.
