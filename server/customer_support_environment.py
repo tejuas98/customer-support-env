@@ -182,7 +182,14 @@ class CustomerSupportEnvironment(Environment):
           +0.6  refund or replacement offered (caps at 1.0)
         """
         done = False
-        reply = "I'm still waiting to hear how you will fix this."
+        default_replies = [
+            "I'm still waiting to hear how you will fix this.",
+            "That's not very helpful. What about my smashed item?",
+            "Are you going to help me with my order or just ignore me?",
+            "I still need a refund or a replacement. Please focus.",
+            "Can we get to the point please?"
+        ]
+        reply = random.choice(default_replies)
 
         apology_words = ["sorry", "apologize", "apologies", "regret", "sincerely sorry"]
         if any(w in msg for w in apology_words):
@@ -217,7 +224,13 @@ class CustomerSupportEnvironment(Environment):
         Penalty: giving a fix without knowing the OS caps reward at 0.1.
         """
         done = False
-        reply = "Are you going to help me fix this or not?"
+        default_replies = [
+            "Are you going to help me fix this crash or not?",
+            "I have a deadline today, please focus on the software issue.",
+            "I'm still stuck with a non-responsive app.",
+            "Can you help me with the crash?"
+        ]
+        reply = random.choice(default_replies)
 
         os_words = ["os", "operating system", "windows", "mac", "linux", "ubuntu", "platform", "system", "version"]
         fix_words = ["driver", "update", "reinstall", "patch", "reboot", "restart", "clear cache", "fresh install", "repair"]
@@ -246,7 +259,13 @@ class CustomerSupportEnvironment(Environment):
           +0.3  escalation to manager (only full 1.0 if previous steps done)
         """
         done = False
-        reply = "Did you hear what I said? I want to speak to a MANAGER!"
+        default_replies = [
+            "Did you hear what I said? I want to speak to a MANAGER!",
+            "Stop wasting my time and fix the overcharge.",
+            "I am furious and I want this resolved now.",
+            "Refunding the overcharge is the priority here."
+        ]
+        reply = random.choice(default_replies)
 
         empathy_words = ["understand", "frustrating", "sorry", "apologize", "completely understand", "terrible", "awful"]
         refund_words = ["refund", "credit", "return", "reimburse", "reverse the charge", "process the refund"]
