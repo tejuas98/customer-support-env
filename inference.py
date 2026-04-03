@@ -1,10 +1,14 @@
 """
-Inference script for customer support evaluation.
+Inference script for the Customer Support OpenEnv environment.
 
-Required env vars:
-    API_BASE_URL: LLM API endpoint.
-    MODEL_NAME: LLM model identifier.
-    HF_TOKEN: Hugging Face API key.
+This script evaluates an LLM agent across all three difficulty tiers
+of the Customer Support environment using the OpenAI-compatible API.
+
+Environment variables:
+    API_BASE_URL:       LLM API endpoint. Defaults to HF router.
+    MODEL_NAME:         LLM model identifier. Defaults to Llama-3.2-3B-Instruct.
+    HF_TOKEN:           Hugging Face API key. No default - must be set explicitly.
+    LOCAL_IMAGE_NAME:   Optional. Docker image name for local testing via from_docker_image().
 """
 
 import os
@@ -12,76 +16,96 @@ from openai import OpenAI
 from server.customer_support_environment import CustomerSupportEnvironment
 from models import CustomerSupportAction
 
-# Set defaults
+# Required environment variables - defaults only for API_BASE_URL and MODEL_NAME.
+# HF_TOKEN must be set by the caller with no fallback.
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.2-3B-Instruct")
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+# Optional: set this when running the environment from a local Docker image.
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
+
+
+def run_tier(client: OpenAI, env: CustomerSupportEnvironment, tier: str) -> float:
+    """Run one full episode for the given difficulty tier. Returns the final reward."""
+    print("[START]")
+    print(f"tier={tier}")
+
+    env.task_tier = tier
+    obs = env.reset()
+    env.task_tier = tier
+
+    system_prompt = (
+        "You are a professional customer support agent. Your goal is to resolve the "
+        "customer's issue efficiently and empathetically in as few turns as possible.\n\n"
+        "Guidelines:\n"
+        "- For broken/damaged product complaints: apologize sincerely, reference the "
+        "customer name or order ID, and proactively offer a full refund or replacement.\n"
+        "- For software crash issues: ALWAYS ask what operating system the customer is "
+        "using FIRST before suggesting any solution.\n"
+        "- For billing disputes: acknowledge the frustration with empathy, explicitly "
+        "mention the exact overcharge amount in dollars, offer to process the refund, "
+        "and then escalate to a manager when requested.\n"
+        "Keep responses concise (2-4 sentences). Do not ask multiple questions at once."
+    )
+
+    messages = [{"role": "system", "content": system_prompt}]
+    final_reward = 0.0
+
+    while not obs.done:
+        print(f"[STEP]")
+        print(f"customer: {obs.customer_reply}")
+        messages.append({"role": "user", "content": obs.customer_reply})
+
+        try:
+            completion = client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=messages,
+                temperature=0.1,
+                max_tokens=150,
+                stream=False,
+            )
+            agent_msg = completion.choices[0].message.content or "I am looking into this right now."
+        except Exception as exc:
+            print(f"model_error: {exc}")
+            agent_msg = "I apologize for the inconvenience. Let me escalate this to a manager immediately."
+
+        print(f"agent: {agent_msg}")
+        messages.append({"role": "assistant", "content": agent_msg})
+
+        action = CustomerSupportAction(message=agent_msg)
+        obs = env.step(action)
+        final_reward = obs.reward
+
+    print(f"reward={final_reward:.2f}")
+    print("[END]")
+    return final_reward
+
 
 def main():
-    if not API_KEY:
-        print("ERROR: HF_TOKEN or API_KEY environment variable is missing.")
+    if not HF_TOKEN:
+        print("ERROR: HF_TOKEN environment variable is not set.")
         return
 
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
     env = CustomerSupportEnvironment()
-    
+
+    print(f"model={MODEL_NAME}")
+    print(f"endpoint={API_BASE_URL}")
+
     tiers = ["easy", "medium", "hard"]
-    
-    print(f"Running evaluation with model: {MODEL_NAME}")
-    
+    scores = {}
+
     for tier in tiers:
-        env.task_tier = tier 
-        obs = env.reset()
-        env.task_tier = tier
-        
-        # Override initial message for consistent baseline
-        if tier == "easy":
-            obs.customer_reply = "Hi, the coffee mug I ordered just arrived broken in half. I'm disappointed."
-        elif tier == "medium":
-            obs.customer_reply = "Your video editing software keeps crashing immediately on launch today."
-        else:
-            obs.customer_reply = "I was double charged $200 this month! This is absolute theft. Get me a manager immediately."
-        obs.task_tier = tier
-        print("[START]")
-        print(f"--- Starting task: {tier.upper()} ---")
-        
-        system_prompt = (
-            "You are a helpful customer support agent. "
-            "For refund requests, apologize, reference the name or Order ID, and offer a refund. "
-            "For software crashes, first ask for the user's OS. "
-            "For billing errors, be empathetic, quote the exact overcharge amount, and escalate to a manager. "
-            "Keep responses short (1-3 sentences)."
-        )
-        
-        messages = [{"role": "system", "content": system_prompt}]
-        
-        while not obs.done:
-            print(f"Customer: {obs.customer_reply}")
-            messages.append({"role": "user", "content": obs.customer_reply})
-            
-            try:
-                completion = client.chat.completions.create(
-                    model=MODEL_NAME,
-                    messages=messages,
-                    temperature=0.2,
-                    max_tokens=200,
-                    stream=False
-                )
-                agent_msg = completion.choices[0].message.content or "noop"
-            except Exception as exc:
-                print(f"Model error ({exc}). Using default msg.")
-                agent_msg = "Please hold while I check my system."
-                
-            print(f"Agent: {agent_msg}")
-            
-            messages.append({"role": "assistant", "content": agent_msg})
-            
-            action = CustomerSupportAction(message=agent_msg)
-            print("[STEP]")
-            obs = env.step(action)
-            
-        print(f"Task '{tier.upper()}' done. Score: {obs.reward}")
-        print("[END]")
+        score = run_tier(client, env, tier)
+        scores[tier] = score
+
+    print("\n--- Evaluation Summary ---")
+    for tier, score in scores.items():
+        print(f"{tier}: {score:.2f}")
+    avg = sum(scores.values()) / len(scores)
+    print(f"average: {avg:.2f}")
+
 
 if __name__ == "__main__":
     main()
