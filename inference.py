@@ -19,7 +19,7 @@ from models import CustomerSupportAction
 # Required environment variables - defaults only for API_BASE_URL and MODEL_NAME.
 # HF_TOKEN must be set by the caller with no fallback.
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.2-3B-Instruct")
+MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
 # Optional: set this when running the environment from a local Docker image.
@@ -31,9 +31,9 @@ def run_tier(client: OpenAI, env: CustomerSupportEnvironment, tier: str) -> floa
     print("[START]")
     print(f"tier={tier}")
 
-    env.task_tier = tier
+    # Force the tier BEFORE reset so the opening message matches
+    env.forced_tier = tier
     obs = env.reset()
-    env.task_tier = tier
 
     system_prompt = (
         "You are a professional customer support agent. Your goal is to resolve the "
