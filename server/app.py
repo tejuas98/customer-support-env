@@ -82,21 +82,29 @@ def build_custom_ui(web_manager, action_fields, metadata, is_chat_env, title, qu
             chat_history = []
             
             # Initial customer message
-            if state.current_observation:
-                chat_history.append({"role": "assistant", "content": state.current_observation.get("customer_reply", "")})
+            obs = state.current_observation
+            if obs:
+                # Use model_dump() for safe dictionary access on Pydantic objects
+                o_dict = obs.model_dump() if hasattr(obs, "model_dump") else obs
+                chat_history.append({"role": "assistant", "content": o_dict.get("customer_reply", "")})
             
             # Action logs
             for log in state.action_logs:
-                chat_history.append({"role": "user", "content": log.action.get("message", "")})
-                chat_history.append({"role": "assistant", "content": log.observation.get("customer_reply", "")})
+                # Ensure we have dictionaries for both Action and Observation
+                a_dict = log.action.model_dump() if hasattr(log.action, "model_dump") else log.action
+                o_dict = log.observation.model_dump() if hasattr(log.observation, "model_dump") else log.observation
+                
+                chat_history.append({"role": "user", "content": a_dict.get("message", "")})
+                chat_history.append({"role": "assistant", "content": o_dict.get("customer_reply", "")})
             
             reward = 0.0
             if state.action_logs:
                 reward = state.action_logs[-1].reward or 0.0
             
             tier = "unknown"
-            if state.current_observation:
-                tier = state.current_observation.get("task_tier", "easy")
+            if obs:
+                o_dict = obs.model_dump() if hasattr(obs, "model_dump") else obs
+                tier = o_dict.get("task_tier", "easy")
 
             return chat_history, reward, tier.upper(), state.step_count
 
