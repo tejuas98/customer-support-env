@@ -1,5 +1,6 @@
+---
 title: Customer Support OpenEnv
-emoji: chatbot
+emoji: 🤖
 colorFrom: blue
 colorTo: indigo
 sdk: docker
