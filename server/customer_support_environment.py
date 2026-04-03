@@ -102,6 +102,7 @@ class CustomerSupportEnvironment(Environment):
             "cancel_reason": random.choice(self.CANCEL_REASONS),
             "discount_pct": random.choice(self.DISCOUNT_OFFERS),
             "months_subscribed": random.randint(3, 36),
+            "retention_type": random.choice(["discount", "pause", "feature_highlight"]),
         }
 
         # Determine tier: forced > curriculum > random
@@ -280,21 +281,25 @@ class CustomerSupportEnvironment(Environment):
 
     def _process_expert(self, msg: str):
         """
-        Expert tier: 3-step reward sequence for subscription cancellation + retention.
-          +0.25  agent asks about the reason for cancellation (diagnosis)
-          +0.4   agent makes a targeted retention offer (discount or plan change)
-          +0.35  professional resolution: either customer stays OR cancel is processed respectfully
+        Expert tier: Subscription cancellation + retention.
+          +0.25  Diagnosis: Ask why.
+          +0.45  Retention Offer: 
+                 - If reason is "too expensive": Reward "discount" or "lower plan".
+                 - If reason is "missing feature": Reward "feature highlight" or "roadmap".
+                 - If reason is "not using much": Reward "pause subscription".
+          +0.3   Resolution: Finalize professionally.
         """
         done = False
         reply = "I just want to cancel. Can you please just process that?"
 
-        reason_words = ["why", "reason", "what's the issue", "what is the issue", "what made you", "tell me more", "concern", "unhappy"]
-        offer_words = ["discount", "offer", f"{self.context['discount_pct']}%", "reduction", "free month", "pause", "downgrade", "alternative plan"]
-        resolution_words = [
-            "cancel", "cancelled", "processed", "subscription ended",
-            "happy to stay", "keep my subscription", "keep the subscription", "won't cancel",
-            "stay with us"
-        ]
+        reason_words = ["why", "reason", "what's the issue", "tell me more", "happened", "cause"]
+        
+        # Retention keywords based on context
+        discount_words = ["discount", "lower price", "cheaper", f"{self.context['discount_pct']}%"]
+        feature_words = ["roadmap", "upcoming", "feature", "new release", "actually we have"]
+        pause_words = ["pause", "hold", "vacation mode", "stop for a while"]
+
+        resolution_words = ["cancel", "done", "processed", "stay", "keep", "thanks for helping"]
 
         if not self.task_state["expert_diagnosed_reason"]:
             if any(w in msg for w in reason_words):
@@ -304,26 +309,38 @@ class CustomerSupportEnvironment(Environment):
                     f"Honestly, it is just {self.context['cancel_reason']}. "
                     "I do not see the value anymore."
                 )
+                return reply, done
 
-        if not self.task_state["expert_made_offer"] and self.task_state["expert_diagnosed_reason"]:
-            if any(w in msg for w in offer_words):
-                self.current_reward = min(self.current_reward + 0.4, 1.0)
+        if self.task_state["expert_diagnosed_reason"] and not self.task_state["expert_made_offer"]:
+            reason = self.context["cancel_reason"]
+            offered_correctly = False
+            
+            if "expensive" in reason and any(w in msg for w in discount_words):
+                offered_correctly = True
+            elif "feature" in reason and any(w in msg for w in feature_words):
+                offered_correctly = True
+            elif "using" in reason and any(w in msg for w in pause_words):
+                offered_correctly = True
+            elif "competitor" in reason and (any(w in msg for w in discount_words) or any(w in msg for w in feature_words)):
+                offered_correctly = True
+
+            if offered_correctly:
+                self.current_reward = min(self.current_reward + 0.45, 1.0)
                 self.task_state["expert_made_offer"] = True
-                reply = (
-                    f"A {self.context['discount_pct']}% discount is interesting... "
-                    "but I am still not sure. What if I still want to cancel?"
-                )
+                reply = "That is actually a very good point. I didn't think of that option. What happens next?"
+            elif any(w in msg for w in (discount_words + feature_words + pause_words)):
+                 # Generic offer but not targeted
+                 self.current_reward = min(self.current_reward + 0.2, 1.0)
+                 self.task_state["expert_made_offer"] = True
+                 reply = "I mean, that's fine, but it doesn't really address my concern. Can we just cancel?"
 
         if any(w in msg for w in resolution_words):
-            if self.task_state["expert_diagnosed_reason"] and self.task_state["expert_made_offer"]:
+            if self.task_state["expert_made_offer"]:
                 self.current_reward = 1.0
-                reply = "You know what, given the offer, I will give it another month. Thank you for working with me."
-            elif self.task_state["expert_diagnosed_reason"]:
-                self.current_reward = min(self.current_reward + 0.1, 0.7)
-                reply = "Okay, my subscription has been cancelled. Disappointing that there was no offer."
+                reply = "You know what, you've been very helpful. Let's keep it for now. Thank you!"
             else:
-                self.current_reward = max(self.current_reward, 0.35)
-                reply = "Thanks for cancelling. This felt very impersonal though."
+                self.current_reward = min(self.current_reward + 0.1, 0.6)
+                reply = "Okay, it's cancelled. A bit disappointed you didn't even try to keep me as a customer."
             done = True
 
         return reply, done

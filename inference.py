@@ -12,8 +12,11 @@ Environment variables:
 """
 
 import os
+import json
+import time
+from datetime import datetime
 from openai import OpenAI
-from server.customer_support_environment import CustomerSupportEnvironment
+from client import CustomerSupportEnv
 from models import CustomerSupportAction
 
 # Defaults for API_BASE_URL and MODEL_NAME only. HF_TOKEN must never have a default.
@@ -40,15 +43,21 @@ SYSTEM_PROMPT = (
 )
 
 
-def run_tier(client: OpenAI, env: CustomerSupportEnvironment, tier: str) -> float:
+def run_tier(client: OpenAI, env: CustomerSupportEnv, tier: str) -> float:
     """Run one full episode for the given difficulty tier. Returns the final reward."""
     print("[START]")
     print(f"tier={tier}")
 
-    env.forced_tier = tier
-    obs = env.reset()
-
+    # Use client.reset with tier forced via metadata/params
+    obs = env.reset(forced_tier=tier)
+    
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    trajectory = {
+        "tier": tier,
+        "timestamp": datetime.now().isoformat(),
+        "model": MODEL_NAME,
+        "turns": []
+    }
     final_reward = 0.0
 
     while not obs.done:
@@ -62,15 +71,11 @@ def run_tier(client: OpenAI, env: CustomerSupportEnvironment, tier: str) -> floa
                 messages=messages,
                 temperature=0.1,
                 max_tokens=150,
-                stream=False,
             )
             agent_msg = completion.choices[0].message.content or "I am looking into this for you right now."
         except Exception as exc:
             print(f"model_error: {exc}")
-            agent_msg = (
-                "I sincerely apologize for the inconvenience. "
-                "I am escalating this to a manager immediately."
-            )
+            agent_msg = "I apologize, but I am having trouble connecting. Let me try again."
 
         print(f"agent: {agent_msg}")
         messages.append({"role": "assistant", "content": agent_msg})
@@ -78,35 +83,61 @@ def run_tier(client: OpenAI, env: CustomerSupportEnvironment, tier: str) -> floa
         action = CustomerSupportAction(message=agent_msg)
         obs = env.step(action)
         final_reward = obs.reward
+        
+        trajectory["turns"].append({
+            "step": len(trajectory["turns"]) + 1,
+            "customer": obs.customer_reply,
+            "agent": agent_msg,
+            "reward": obs.reward
+        })
 
     print(f"reward={final_reward:.2f}")
+    
+    # Save trajectory to outputs/
+    os.makedirs("outputs/trajectories", exist_ok=True)
+    filename = f"outputs/trajectories/traj_{tier}_{int(time.time())}.json"
+    with open(filename, "w") as f:
+        json.dump(trajectory, f, indent=2)
+    
+    print(f"trajectory_saved={filename}")
     print("[END]")
     return final_reward
 
 
 def main():
-    if not HF_TOKEN:
-        print("ERROR: HF_TOKEN environment variable is not set.")
+    if not HF_TOKEN and "router" in API_BASE_URL:
+        print("ERROR: HF_TOKEN environment variable is not set and needed for HF router.")
         return
 
-    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
-    env = CustomerSupportEnvironment()
+    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN or "no-token-needed")
 
-    print(f"model={MODEL_NAME}")
-    print(f"endpoint={API_BASE_URL}")
+    # Benchmarking/Validation Strategy:
+    # 1. If LOCAL_IMAGE_NAME is set, use from_docker_image()
+    # 2. Otherwise use the default class-based local server via implicit port
+    if LOCAL_IMAGE_NAME:
+        print(f"Launching environment from Docker: {LOCAL_IMAGE_NAME}")
+        env_context = CustomerSupportEnv.from_docker_image(LOCAL_IMAGE_NAME)
+    else:
+        # Default to local server (ensure uv run server is running or it will auto-start)
+        print("Connecting to local environment server...")
+        env_context = CustomerSupportEnv(base_url="http://localhost:8000")
 
-    tiers = ["easy", "medium", "hard", "expert"]
-    scores = {}
+    with env_context as env:
+        print(f"model={MODEL_NAME}")
+        print(f"endpoint={API_BASE_URL}")
 
-    for tier in tiers:
-        score = run_tier(client, env, tier)
-        scores[tier] = score
+        tiers = ["easy", "medium", "hard", "expert"]
+        scores = {}
 
-    print("\n--- Evaluation Summary ---")
-    for tier, score in scores.items():
-        print(f"{tier}: {score:.2f}")
-    avg = sum(scores.values()) / len(scores)
-    print(f"average: {avg:.2f}")
+        for tier in tiers:
+            score = run_tier(client, env, tier)
+            scores[tier] = score
+
+        print("\n--- Evaluation Summary ---")
+        for tier, score in scores.items():
+            print(f"{tier}: {score:.2f}")
+        avg = sum(scores.values()) / len(scores)
+        print(f"average: {avg:.2f}")
 
 
 if __name__ == "__main__":
