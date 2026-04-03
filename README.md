@@ -14,7 +14,7 @@ A high-fidelity, multi-tier RL environment for training AI agents on real-world 
 
 ## ⭐ Premium Hackathon Features
 - **Custom Support Dashboard**: A professional Gradio UI redesign at `/web` featuring a real-time Chatbot interface, live reward gauges, and tiered difficulty metrics.
-- **Trajectory Logging**: Every evaluation is captured as a high-fidelity JSON trajectory in `outputs/trajectories/`, suitable for jury review and model fine-tuning.
+- **Trajectory Logging**: Every evaluation is captured as a high-fidelity JSON trajectory in `outputs/trajectories/`, suitable for detailed review and model fine-tuning.
 - **Nuanced Expert Tier**: Advanced retention logic requiring **targeted offers** (e.g., offering a discount for price concerns, or roadmap highlights for feature gaps).
 - **Curriculum Mode**: Native support for `easy` ➡️ `medium` ➡️ `hard` ➡️ `expert` progression based on agent performance.
 - **Docker-First**: Ready-to-deploy `Dockerfile` and `inference.py` optimized for HF Spaces and the OpenEnv framework.
@@ -58,7 +58,7 @@ docker run -p 8000:8000 support-env
 
 ---
 
-## 🤝 Judge's Quick-Start Guide
+## 🤝 Evaluation & Quick-Start Guide
 
 We have designed this environment to be easily explored. Below are the recommended ways to verify the project's logic and compliance:
 
