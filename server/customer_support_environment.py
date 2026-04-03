@@ -59,8 +59,28 @@ class CustomerSupportEnvironment(Environment):
         self.task_tier = "easy"
         self.max_turns = 8
         self.current_reward = 0.0
-        self.task_state = {}
-        self.context = {}
+        self.task_state = {
+            "easy_apologized": False,
+            "easy_referenced_identity": False,
+            "medium_asked_os": False,
+            "hard_empathized": False,
+            "hard_compensated": False,
+            "expert_diagnosed_reason": False,
+            "expert_made_offer": False,
+        }
+        self.context = {
+            "name": "Customer",
+            "order_id": "#00000",
+            "product": "item",
+            "software": "app",
+            "os": "unknown",
+            "overcharge_amt": 0,
+            "plan": "basic",
+            "cancel_reason": "unknown",
+            "discount_pct": 0,
+            "months_subscribed": 0,
+            "retention_type": "discount",
+        }
         # Curriculum mode: auto-advances difficulty based on rolling success rate
         self.curriculum = False
         self._episode_scores = []

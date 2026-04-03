@@ -10,7 +10,7 @@ app_port: 8000
 
 # 🎧 Customer Support OpenEnv: PREMIUM EDITION
 
-A high-fidelity, multi-tier RL environment for training AI agents on real-world customer support tasks. Optimized for the **Meta OpenEnv Hackathon**.
+A high-fidelity, multi-tier RL environment for training AI agents on real-world customer support tasks. Optimized for the Meta OpenEnv framework.
 
 ## ⭐ Premium Hackathon Features
 - **Custom Support Dashboard**: A professional Gradio UI redesign at `/web` featuring a real-time Chatbot interface, live reward gauges, and tiered difficulty metrics.
@@ -58,32 +58,29 @@ docker run -p 8000:8000 support-env
 
 ---
 
-## 🏆 For Judges: How to Evaluate
+## 🤝 Judge's Quick-Start Guide
 
-To fully evaluate this environment as described in the hackers' guidelines:
+We have designed this environment to be easily explored. Below are the recommended ways to verify the project's logic and compliance:
 
-### 1. Automated Evaluation (Preferred)
+### 1. Automated Evaluation
+Run the standard inference suite to see how a reasoning model performs across all 4 tiers:
 ```bash
 export HF_TOKEN="your_huggingface_token"
 uv run python3 inference.py
 ```
-**What will happen:**
-- The script uses `Qwen/Qwen2.5-72B-Instruct` as the reasoning engine.
-- You will see the standard OpenEnv log markers: `[START]`, `[STEP]`, and `[END]`.
-- All 4 tiers (Easy, Medium, Hard, Expert) are tested sequencially.
-- **Trajectories Produced:** Full session histories are saved as JSON files in `outputs/trajectories/` for deep inspection.
+- **Evaluation Details**: Uses the official OpenEnv log markers: `[START]`, `[STEP]`, and `[END]`.
+- **Session Trajectories**: Full conversation histories and reward markers are captured in `outputs/trajectories/` for granular inspection.
 
-### 2. Manual Inspection (Visual)
-Visit our live Hugging Face Space: 
+### 2. Manual Verification (Visual)
+Please visit our live Hugging Face Space: 
 👉 [tejus98/customer-support-env](https://huggingface.co/spaces/tejus98/customer-support-env)
 
-Navigate to the **'Custom'** tab to use our premium **Support Agent Dashboard**. This allows you to manually verify the environment's high-fidelity empathy grading and reward signals.
+The **'Custom'** tab provides a dashboard to manually verify the environment's high-fidelity empathy grading and tiered reward signals in real-time.
 
 ---
 
 ## 🏗️ Technical Specifications
-- **RL Grader Logic**: Implemented in `server/customer_support_environment.py`.
+- **RL Grader Strategy**: Implemented in `server/customer_support_environment.py`.
+- **Environment Tiers**: Procedural generation for `easy`, `medium`, `hard`, and `expert`.
 - **Model Compatibility**: `Qwen/Qwen2.5-72B-Instruct` (HF Router).
-- **Reward Range**: 0.0 to 1.0 (Continuous with partial credit).
-- **Trajectory Format**: JSON with turn-by-turn text, rewards, and difficulty metadata.
-- **Log Markers**: Strict `[START]`, `[STEP]`, `[END]` compliance for automated OpenEnv grading.
+- **Log Formatting**: Adheres to OpenEnv submission standards.
