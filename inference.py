@@ -154,10 +154,13 @@ def main():
     else:
         env_context = CustomerSupportEnv(base_url="http://localhost:8000")
 
-    with env_context as env:
-        tiers = ["easy", "medium", "hard", "expert"]
-        for tier in tiers:
-            run_tier(client, env, tier)
+    try:
+        with env_context.sync() as env:
+            tiers = ["easy", "medium", "hard", "expert"]
+            for tier in tiers:
+                run_tier(client, env, tier)
+    except Exception as exc:
+        print(f"FAILED TO CONNECT TO ENVIRONMENT: {exc}")
 
 
 if __name__ == "__main__":
