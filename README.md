@@ -90,6 +90,8 @@ Please visit our live Hugging Face Space:
 
 The **'Custom'** tab provides a dashboard to manually verify the environment's high-fidelity empathy grading and tiered reward signals in real-time.
 
+![Live Interactive UI](assets/live_ui_demo.png)
+
 ---
 
 ## Technical Specifications
