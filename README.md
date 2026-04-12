@@ -66,14 +66,23 @@ docker run -p 8000:8000 support-env
 
 We have designed this environment to be easily explored. Below are the recommended ways to verify the project's logic and compliance:
 
-### 1. Automated Evaluation
-Run the standard inference suite to see how a reasoning model performs across all 4 tiers:
-```bash
-export HF_TOKEN="your_huggingface_token"
-uv run python3 inference.py
-```
-- **Evaluation Details**: Uses the official OpenEnv log markers: `[START]`, `[STEP]`, and `[END]`.
-- **Session Trajectories**: Full conversation histories and reward markers are captured in `outputs/trajectories/` for granular inspection.
+### 1. Automated Evaluation (Phase 2 Simulation)
+To run the exact **Phase 2 Agentic Evaluation** loop locally on your machine just like the Meta openenv automated servers:
+
+1. Setup your Hugging Face inference key (never hardcode this!):
+   ```bash
+   export HF_TOKEN="your_huggingface_token_here"
+   ```
+2. Start the local evaluation pipeline:
+   ```bash
+   # Make sure the local server is running in another tab if not using Docker
+   uv run uvicorn server.app:app --host 0.0.0.0 --port 8000 &
+   
+   # Run the evaluator
+   uv run python3 inference.py
+   ```
+- **Evaluation Details**: The script outputs exactly the string schemas the Phase 2 system demands: `[START]`, `[STEP]`, and `[END]`, with normalized scores. High-empathy steps grant up to `1.00`.
+- **Session Trajectories**: Full trace histories are also captured cleanly in `outputs/trajectories/` for deep inspection.
 
 ### 2. Manual Verification (Visual)
 Please visit our live Hugging Face Space: 
