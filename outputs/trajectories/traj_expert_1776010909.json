@@ -1,0 +1,55 @@
+{
+  "tier": "expert",
+  "timestamp": "2026-04-12T21:51:46.453370",
+  "model": "Qwen/Qwen2.5-72B-Instruct",
+  "turns": [
+    {
+      "step": 1,
+      "customer": "Stop wasting my time and fix the overcharge.",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 2,
+      "customer": "Did you hear what I said? I want to speak to a MANAGER!",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 3,
+      "customer": "Refunding the overcharge is the priority here.",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 4,
+      "customer": "I am furious and I want this resolved now.",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 5,
+      "customer": "Did you hear what I said? I want to speak to a MANAGER!",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 6,
+      "customer": "Stop wasting my time and fix the overcharge.",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 7,
+      "customer": "Refunding the overcharge is the priority here.",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 8,
+      "customer": "I have been waiting too long. I am filing a formal complaint. Goodbye.",
+      "agent": "hello",
+      "reward": 0.0
+    }
+  ]
+}

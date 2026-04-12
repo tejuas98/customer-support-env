@@ -1,0 +1,55 @@
+{
+  "tier": "hard",
+  "timestamp": "2026-04-12T21:51:42.504428",
+  "model": "Qwen/Qwen2.5-72B-Instruct",
+  "turns": [
+    {
+      "step": 1,
+      "customer": "Are you going to help me fix this crash or not?",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 2,
+      "customer": "I'm still stuck with a non-responsive app.",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 3,
+      "customer": "I have a deadline today, please focus on the software issue.",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 4,
+      "customer": "I'm still stuck with a non-responsive app.",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 5,
+      "customer": "Are you going to help me fix this crash or not?",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 6,
+      "customer": "I have a deadline today, please focus on the software issue.",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 7,
+      "customer": "Can you help me with the crash?",
+      "agent": "hello",
+      "reward": 0.0
+    },
+    {
+      "step": 8,
+      "customer": "I have been waiting too long. I am filing a formal complaint. Goodbye.",
+      "agent": "hello",
+      "reward": 0.0
+    }
+  ]
+}

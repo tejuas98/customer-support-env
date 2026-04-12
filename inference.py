@@ -67,7 +67,7 @@ def run_tier(client: OpenAI, env: CustomerSupportEnv, tier: str) -> float:
     log_start(task="customer_support", env=tier, model=MODEL_NAME)
 
     try:
-        obs = env.reset(forced_tier=tier)
+        result = env.reset(forced_tier=tier)
     except Exception as exc:
         error_msg = str(exc).replace('\n', ' ')
         log_end(success=False, steps=0, score=0.0, rewards=[])
@@ -83,12 +83,13 @@ def run_tier(client: OpenAI, env: CustomerSupportEnv, tier: str) -> float:
     
     rewards = []
     step_count = 0
-    done = obs.done
+    done = result.done
     error_msg = None
+    customer_msg = getattr(result.observation, "customer_reply", "")
 
     while not done:
         step_count += 1
-        messages.append({"role": "user", "content": obs.customer_reply})
+        messages.append({"role": "user", "content": customer_msg})
 
         try:
             completion = client.chat.completions.create(
@@ -106,9 +107,10 @@ def run_tier(client: OpenAI, env: CustomerSupportEnv, tier: str) -> float:
         action = CustomerSupportAction(message=agent_msg)
         
         try:
-            obs = env.step(action)
-            reward = obs.reward
-            done = obs.done
+            result = env.step(action)
+            reward = result.reward
+            done = result.done
+            customer_msg = getattr(result.observation, "customer_reply", "")
         except Exception as exc:
             reward = 0.0
             done = True
@@ -120,7 +122,7 @@ def run_tier(client: OpenAI, env: CustomerSupportEnv, tier: str) -> float:
         
         trajectory["turns"].append({
             "step": step_count,
-            "customer": getattr(obs, "customer_reply", ""),
+            "customer": customer_msg,
             "agent": agent_msg,
             "reward": reward
         })
