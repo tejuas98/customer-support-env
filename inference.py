@@ -49,7 +49,11 @@ def run_tier(client: OpenAI, env: CustomerSupportEnv, tier: str) -> float:
     print(f"tier={tier}")
 
     # Use client.reset with tier forced via metadata/params
-    obs = env.reset(forced_tier=tier)
+    try:
+        obs = env.reset(forced_tier=tier)
+    except Exception as exc:
+        print(f"env_reset_error: {exc}")
+        return 0.0
     
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     trajectory = {
@@ -81,7 +85,12 @@ def run_tier(client: OpenAI, env: CustomerSupportEnv, tier: str) -> float:
         messages.append({"role": "assistant", "content": agent_msg})
 
         action = CustomerSupportAction(message=agent_msg)
-        obs = env.step(action)
+        try:
+            obs = env.step(action)
+        except Exception as exc:
+            print(f"env_step_error: {exc}")
+            break
+        
         final_reward = obs.reward
         
         trajectory["turns"].append({
