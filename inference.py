@@ -127,7 +127,8 @@ def run_tier(client: OpenAI, env: CustomerSupportEnv, tier: str) -> float:
             "reward": reward
         })
 
-    score = rewards[-1] if rewards else 0.0
+    raw_score = rewards[-1] if rewards else 0.0
+    score = max(0.001, min(0.999, raw_score))  # Must be strictly (0, 1) per Hackathon validator rules
     success = score >= 0.5
     
     log_end(success=success, steps=step_count, score=score, rewards=rewards)
